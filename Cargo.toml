@@ -1,0 +1,18 @@
+[package]
+name = "zed-todo-tree"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+zed_extension_api = "0.7.0"
+
+# The language server is a separate native crate; keep it out of this
+# (wasm) build.
+[workspace]
+exclude = ["server"]

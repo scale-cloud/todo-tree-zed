@@ -1,0 +1,64 @@
+name: Release language server
+
+# Push a tag like `v0.1.0` to build `todo-tree-ls` for every platform and
+# attach the archives to a GitHub release. The Zed extension downloads the
+# asset matching the user's platform from the latest release.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-22.04 }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-22.04-arm }
+          - { target: x86_64-apple-darwin, os: macos-latest }
+          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+          - { target: aarch64-pc-windows-msvc, os: windows-latest }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+        working-directory: server
+      - name: Package (unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd server/target/${{ matrix.target }}/release
+          tar czf "$GITHUB_WORKSPACE/todo-tree-ls-${{ matrix.target }}.tar.gz" todo-tree-ls
+      - name: Package (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path server/target/${{ matrix.target }}/release/todo-tree-ls.exe `
+            -DestinationPath todo-tree-ls-${{ matrix.target }}.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: todo-tree-ls-${{ matrix.target }}
+          path: todo-tree-ls-${{ matrix.target }}.*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
